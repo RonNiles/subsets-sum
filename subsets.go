@@ -42,6 +42,13 @@ import (
 // to find the number of subsets being contributed by the current selection.
 //  This is done using computeTotalsRecursively()
 
+// Addendum - there is also a much simpler way to do this iteratively
+//  If the distribution of the sums of all possible 2^n subsets (modulo 5) of {1...n} is known, and the n + 1 th element is added
+//  then distrribution of all the sets in which it is NOT present is the same as the known distribution, and the
+//  distribuition of all of the sets in which it IS present is the known distribution shifted by (n + 1 modulo 5), so
+//  the distribution of all possible 2^(n + 1) subsets of {1...n+1} can be computed by a simple sum
+//
+
 const columns = 5
 const rows = 400
 
@@ -180,7 +187,46 @@ func (r *recurse) computeTotalsRecursively() {
 	}
 }
 
+// Simple method. If we know the distribution of the sums of all possible subsets of {1...n}
+// then we compute the distribution of the sums of all possible subsets of {1...n+1} by adding
+// the known distribution plus the known distribution shifted by (n + 1 modulo 'columns')
+func simple() {
+	// we will use a two dimensional array to hold a prev distribution and a next distribution which alternate
+	var sums [2][columns]*big.Int
+	var prev, next int
+
+	// Initialize both arrays. They contain big.Int pointers
+	for prev = 0; prev < 2; prev++ {
+		for i := 0; i < columns; i++ {
+			sums[prev][i] = big.NewInt(0)
+		}
+	}
+
+	// initialize prev and next, which alternate
+	prev = 0
+	next = 1
+
+	// There are no elements in the empty subset. The sum all elements in the empty set is considered to be zero.
+	// So there is a single subset (the null subset) whose sum is zero
+	sums[prev][0].Set(big.NewInt(1))
+
+	// Iterate, advancing the known distribution each time
+	for n := 1; n <= rows*columns; n++ {
+		for col := 0; col < columns; col++ {
+			k := (n + col) % columns
+			// nth distribution is (n-1)th distribution plus (n-1)th distribution shifted by n mod columns
+			sums[next][k].Add(sums[prev][k], sums[prev][col])
+		}
+		// alternate prev and next
+		prev, next = next, prev
+	}
+	fmt.Println("Number of subsets whose sum is divisible by", columns, "(simple method):")
+	fmt.Println(sums[prev][0])
+}
+
 func main() {
+	simple()
+
 	r := &recurse{}
 	r.initialize()
 
@@ -188,6 +234,6 @@ func main() {
 
 	r.computeTotalsRecursively()
 
-	fmt.Println("Number of subsets whose sum is divisible by", columns, ":")
+	fmt.Println("Number of subsets whose sum is divisible by", columns, "(binomial method):")
 	fmt.Println(r.totals[0])
 }
